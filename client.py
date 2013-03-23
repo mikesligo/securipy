@@ -149,9 +149,10 @@ class EncryptionManager():
         return encoded
 
     def decrypt_data(self, encoded):
-        privkey = self.X509Certificate.get_pubkey()
+        #privkey = self.X509Certificate.get_pubkey().as_pem(None)
+        cipher = RSA.load_key("key.asc")
         decoded = base64.b64decode(encoded)
-        plaintext = privkey.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
+        plaintext = cipher.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
         return plaintext
 
 if __name__ == '__main__':
@@ -165,4 +166,4 @@ if __name__ == '__main__':
     secure = EncryptionManager()
     #secure.generate_cert("key.asc")
     secure.import_cert("cert.pem")
-    secure.encrypt_data("lol")
+    print secure.decrypt_data(secure.encrypt_data("lol"))
