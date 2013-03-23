@@ -73,9 +73,17 @@ class MailManager():
 
 class EncryptionManager():
 
+    def generate_cert(self, loc):
+        self.generate_pkey(loc)
+        self.create_x509_request()
+        self.create_x509_cert()
+
     def generate_pkey(self, loc):
-        M2Crypto.Rand.rand_seed(os.urandom(1024))
-        self.private = M2Crypto.RSA.gen_key (1024, 65537, lambda: None)
+        if loc is None:
+            M2Crypto.Rand.rand_seed(os.urandom(1024))
+            self.private = M2Crypto.RSA.gen_key (1024, 65537, lambda: None)
+        else:
+            self.import_key(loc)
         self.pkey = M2Crypto.EVP.PKey()  
         self.pkey.assign_rsa(self.private)
 
@@ -127,7 +135,7 @@ class EncryptionManager():
         #print self.X509Certificate.as_text ()
 
     def import_key(self, loc):
-        self.keys = M2Crypto.RSA.load_key(loc)
+        self.private = M2Crypto.RSA.load_key(loc)
 
     def encrypt_data(self, data):
         pass
@@ -142,7 +150,4 @@ if __name__ == '__main__':
     #mail.fetch_mail()
     #mail.quit()
     secure = EncryptionManager()
-    secure.generate_pkey("key.asc")
-    secure.create_x509_request()
-    secure.create_x509_cert()
-    #secure.import_key("key.asc")
+    secure.generate_cert("key.asc")
