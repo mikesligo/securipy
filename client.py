@@ -5,6 +5,11 @@ import getpass
 import sys, os
 import email
 import M2Crypto
+import time
+
+MBSTRING_FLAG = 0x1000
+MBSTRING_ASC  = MBSTRING_FLAG | 1
+MBSTRING_BMP  = MBSTRING_FLAG | 2
 
 class MailManager():
 
@@ -68,13 +73,61 @@ class MailManager():
 
 class EncryptionManager():
 
-    def generate_key(self, loc):
+    def generate_pkey(self, loc):
         M2Crypto.Rand.rand_seed(os.urandom(1024))
-        self.key = M2Crypto.RSA.gen_key (1024, 65537)
-        self.key.save_pem(loc,None)
+        self.private = M2Crypto.RSA.gen_key (1024, 65537, lambda: None)
+        self.pkey = M2Crypto.EVP.PKey()  
+        self.pkey.assign_rsa(self.private)
+
+    def create_x509_request(self):
+        self.X509Request = M2Crypto.X509.Request()
+        X509Name = M2Crypto.X509.X509_Name()
+        X509Name.add_entry_by_txt (field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0 ) # country name
+        X509Name.add_entry_by_txt (field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # state of province name
+        X509Name.add_entry_by_txt (field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # locality name
+        X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
+        X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
+        X509Name.add_entry_by_txt (field='CN', type=MBSTRING_ASC, entry='Certificate client',len=-1, loc=-1, set=0)    # common name
+        X509Name.add_entry_by_txt (field='Email',type=MBSTRING_ASC, entry='root@localhost',len=-1, loc=-1, set=0)    # pkcs9 email address
+        self.X509Request.set_subject_name(X509Name)
+        self.X509Request.set_pubkey( pkey=self.pkey )
+        self.X509Request.sign(pkey=self.pkey, md='sha1')
+        #print self.X509Request.as_text()
+
+    def create_x509_cert(self):
+        self.X509Certificate = M2Crypto.X509.X509() 
+        self.X509Certificate.set_version(0)
+
+        # Time settings
+        cur_time = M2Crypto.ASN1.ASN1_UTCTIME()
+        cur_time.set_time(int(time.time()))
+        self.X509Certificate.set_not_before(cur_time)
+
+        # Expire certs in 1 day.
+        expire_time = M2Crypto.ASN1.ASN1_UTCTIME()
+        expire_time.set_time(int(time.time()) + 60 * 60 * 24)
+        self.X509Certificate.set_not_after(expire_time)
+
+        self.X509Certificate.set_pubkey(pkey=self.pkey)
+        X509Name = self.X509Request.get_subject()
+
+        self.X509Certificate.set_subject_name(X509Name)
+        X509Name.add_entry_by_txt (field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0 ) # country name
+        X509Name.add_entry_by_txt (field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # state of province name
+        X509Name.add_entry_by_txt (field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # locality name
+        X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
+        X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
+        X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Authority',len=-1, loc=-1, set=0)    # common name
+        X509Name.add_entry_by_txt(field='Email',type=MBSTRING_ASC, entry='root@localhost',len=-1, loc=-1, set=0)    # pkcs9 email address
+        X509Name = M2Crypto.X509.X509_Name(M2Crypto.m2.x509_name_new())
+
+        self.X509Certificate.set_issuer_name( X509Name )
+        
+        self.X509Certificate.sign( pkey=self.pkey, md='sha1' )
+        print self.X509Certificate.as_text ()
 
     def import_key(self, loc):
-        self.key = M2Crypto.RSA.load_key(loc)
+        self.keys = M2Crypto.RSA.load_key(loc)
 
     def encrypt_data(self, data):
         pass
@@ -82,12 +135,14 @@ class EncryptionManager():
 
 if __name__ == '__main__':
     print
-    #print "Logging in as mikesligo@gmail.com"
+    #print "Logging in as root@localhost"
     #password = getpass.getpass(prompt="Enter password: ")
-    #mail = MailManager("mikesligo@gmail.com",password)
-    #mail.send_mail("mikesligo@gmail.com","lol")
+    #mail = MailManager("root@localhost",password)
+    #mail.send_mail("root@localhost","lol")
     #mail.fetch_mail()
     #mail.quit()
     secure = EncryptionManager()
-    secure.generate_key("key.asc")
-    secure.import_key("key.asc")
+    secure.generate_pkey("key.asc")
+    secure.create_x509_request()
+    secure.create_x509_cert()
+    #secure.import_key("key.asc")
