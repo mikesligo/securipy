@@ -2,6 +2,8 @@ import smtplib
 from smtplib import SMTPHeloError, SMTPAuthenticationError, SMTPException
 import imaplib
 import getpass
+import sys
+import email
 
 class MailManager():
 
@@ -29,26 +31,36 @@ class MailManager():
                 self.serverConn.login(self.username,self.password)
             elif protocol == "imap":
                 self.imap.login(self.username,self.password)
-        except SMTPHeloError as err:
+        except SMTPHeloError:
             print "SMTPHeloError:"
-            print err
-        except SMTPAuthenticationError as err:
+            raise
+        except SMTPAuthenticationError:
             print "Username/Password incorrect"
-        except SMTPException as err:
+            sys.exit(1)
+        except SMTPException:
             print "SMTPException"
-            print err
+            raise
         except:
             raise
         print "successful."
 
-    def send_data(self,data,address):
-        self.serverConn.sendmail(self.sender,address,data)
+    def send_mail(self,address,data):
+        self.serverConn.sendmail(self.username,address,data)
 
     def fetch_mail(self):
         print "** Connecting to IMAP servers **"
         self.imap = imaplib.IMAP4_SSL('imap.gmail.com')
         self.login_imap()
-        print self.imap.list()
+        latest = self.get_latest_email()
+        print latest
+
+    def get_latest_email(self):
+        self.imap.select("inbox")
+        result, data = self.imap.uid('search', None, "ALL") # search and return uids instead
+        latest_email_uid = data[0].split()[-1]
+        result, data = self.imap.uid('fetch', latest_email_uid, '(RFC822)')
+        raw_email = data[0][1]
+        return raw_email
 
     def quit(self):
         self.serverConn.quit()
@@ -59,5 +71,6 @@ if __name__ == '__main__':
     print "Logging in as mikesligo@gmail.com"
     password = getpass.getpass(prompt="Enter password: ")
     manager = MailManager("mikesligo@gmail.com",password)
+    #manager.send_mail("mikesligo@gmail.com","lol")
     manager.fetch_mail()
     manager.quit()
