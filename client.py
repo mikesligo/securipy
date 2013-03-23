@@ -88,7 +88,7 @@ class EncryptionManager():
         X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
         X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
         X509Name.add_entry_by_txt (field='CN', type=MBSTRING_ASC, entry='Certificate client',len=-1, loc=-1, set=0)    # common name
-        X509Name.add_entry_by_txt (field='Email',type=MBSTRING_ASC, entry='root@localhost',len=-1, loc=-1, set=0)    # pkcs9 email address
+        X509Name.add_entry_by_txt (field='Email',type=MBSTRING_ASC, entry='mikesligo@gmail.com',len=-1, loc=-1, set=0)    # pkcs9 email address
         self.X509Request.set_subject_name(X509Name)
         self.X509Request.set_pubkey( pkey=self.pkey )
         self.X509Request.sign(pkey=self.pkey, md='sha1')
@@ -118,13 +118,13 @@ class EncryptionManager():
         X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
         X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
         X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Authority',len=-1, loc=-1, set=0)    # common name
-        X509Name.add_entry_by_txt(field='Email',type=MBSTRING_ASC, entry='root@localhost',len=-1, loc=-1, set=0)    # pkcs9 email address
+        X509Name.add_entry_by_txt(field='Email',type=MBSTRING_ASC, entry='mikesligo@gmail.com',len=-1, loc=-1, set=0)    # pkcs9 email address
         X509Name = M2Crypto.X509.X509_Name(M2Crypto.m2.x509_name_new())
-
-        self.X509Certificate.set_issuer_name( X509Name )
+        self.X509Certificate.set_issuer_name(X509Name)
         
-        self.X509Certificate.sign( pkey=self.pkey, md='sha1' )
-        print self.X509Certificate.as_text ()
+        self.X509Certificate.sign(pkey=self.pkey, md='sha1')
+        self.X509Certificate.save_pem("cert.pem")
+        #print self.X509Certificate.as_text ()
 
     def import_key(self, loc):
         self.keys = M2Crypto.RSA.load_key(loc)
@@ -135,10 +135,10 @@ class EncryptionManager():
 
 if __name__ == '__main__':
     print
-    #print "Logging in as root@localhost"
+    #print "Logging in as mikesligo@gmail.com"
     #password = getpass.getpass(prompt="Enter password: ")
-    #mail = MailManager("root@localhost",password)
-    #mail.send_mail("root@localhost","lol")
+    #mail = MailManager("mikesligo@gmail.com",password)
+    #mail.send_mail("mikesligo@gmail.com","lol")
     #mail.fetch_mail()
     #mail.quit()
     secure = EncryptionManager()
