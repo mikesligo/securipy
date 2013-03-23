@@ -141,7 +141,8 @@ class EncryptionManager():
         self.X509Certificate = M2Crypto.X509.load_cert(loc)
 
     def encrypt_data(self, data):
-        pass
+        pubkey = self.X509Certificate.get_pubkey()
+        print pubkey.as_pem(None)
 
 
 if __name__ == '__main__':
@@ -155,3 +156,4 @@ if __name__ == '__main__':
     secure = EncryptionManager()
     #secure.generate_cert("key.asc")
     secure.import_cert("cert.pem")
+    secure.encrypt_data(None)
