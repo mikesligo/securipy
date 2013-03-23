@@ -137,6 +137,9 @@ class EncryptionManager():
     def import_key(self, loc):
         self.private = M2Crypto.RSA.load_key(loc)
 
+    def import_cert(self,loc):
+        self.X509Certificate = M2Crypto.X509.load_cert(loc)
+
     def encrypt_data(self, data):
         pass
 
@@ -150,4 +153,5 @@ if __name__ == '__main__':
     #mail.fetch_mail()
     #mail.quit()
     secure = EncryptionManager()
-    secure.generate_cert("key.asc")
+    #secure.generate_cert("key.asc")
+    secure.import_cert("cert.pem")
