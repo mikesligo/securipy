@@ -2,8 +2,9 @@ import smtplib
 from smtplib import SMTPHeloError, SMTPAuthenticationError, SMTPException
 import imaplib
 import getpass
-import sys
+import sys, os
 import email
+import M2Crypto
 
 class MailManager():
 
@@ -65,12 +66,28 @@ class MailManager():
     def quit(self):
         self.serverConn.quit()
 
+class EncryptionManager():
+
+    def generate_key(self, loc):
+        M2Crypto.Rand.rand_seed(os.urandom(1024))
+        self.key = M2Crypto.RSA.gen_key (1024, 65537)
+        self.key.save_pem(loc,None)
+
+    def import_key(self, loc):
+        self.key = M2Crypto.RSA.load_key(loc)
+
+    def encrypt_data(self, data):
+        pass
+
 
 if __name__ == '__main__':
     print
-    print "Logging in as mikesligo@gmail.com"
-    password = getpass.getpass(prompt="Enter password: ")
-    manager = MailManager("mikesligo@gmail.com",password)
-    #manager.send_mail("mikesligo@gmail.com","lol")
-    manager.fetch_mail()
-    manager.quit()
+    #print "Logging in as mikesligo@gmail.com"
+    #password = getpass.getpass(prompt="Enter password: ")
+    #mail = MailManager("mikesligo@gmail.com",password)
+    #mail.send_mail("mikesligo@gmail.com","lol")
+    #mail.fetch_mail()
+    #mail.quit()
+    secure = EncryptionManager()
+    secure.generate_key("key.asc")
+    secure.import_key("key.asc")
