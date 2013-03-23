@@ -5,7 +5,9 @@ import getpass
 import sys, os
 import email
 import M2Crypto
+from M2Crypto import RSA
 import time
+import base64
 
 MBSTRING_FLAG = 0x1000
 MBSTRING_ASC  = MBSTRING_FLAG | 1
@@ -141,9 +143,16 @@ class EncryptionManager():
         self.X509Certificate = M2Crypto.X509.load_cert(loc)
 
     def encrypt_data(self, data):
-        pubkey = self.X509Certificate.get_pubkey()
-        print pubkey.as_pem(None)
+        pubkey = self.X509Certificate.get_pubkey().get_rsa()
+        ciphertext = pubkey.public_encrypt(data, RSA.pkcs1_oaep_padding)
+        encoded = base64.b64encode(ciphertext)
+        return encoded
 
+    def decrypt_data(self, encoded):
+        privkey = self.X509Certificate.get_pubkey()
+        decoded = base64.b64decode(encoded)
+        plaintext = privkey.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
+        return plaintext
 
 if __name__ == '__main__':
     print
@@ -156,4 +165,4 @@ if __name__ == '__main__':
     secure = EncryptionManager()
     #secure.generate_cert("key.asc")
     secure.import_cert("cert.pem")
-    secure.encrypt_data(None)
+    secure.encrypt_data("lol")
