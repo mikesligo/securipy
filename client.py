@@ -76,7 +76,7 @@ class MailManager():
         self.imap = imaplib.IMAP4_SSL('imap.gmail.com')
         self.login_imap()
         latest = self.get_latest_email()
-        print latest
+        return latest
 
     def get_latest_email(self):
         self.imap.select("inbox")
@@ -85,6 +85,9 @@ class MailManager():
         result, data = self.imap.uid('fetch', latest_email_uid, '(RFC822)')
         raw_email = data[0][1]
         return raw_email
+
+    def get_body(self,raw_email):
+        return email.message_from_string(raw_email).get_payload()
 
     def quit(self):
         self.serverConn.quit()
@@ -171,15 +174,32 @@ class EncryptionManager():
         plaintext = cipher.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
         return plaintext
 
+class TestManager():
+
+    def test_all(self):
+        secure = EncryptionManager()
+        tester.test_all_EncryptionManager(secure)
+        tester.test_all_MailManager(secure)
+
+    def test_all_EncryptionManager(self, secure):
+        print "Generating certificate..."
+        secure.generate_cert("key.asc")
+        print "Importing certificate..."
+        secure.import_cert("cert.pem")
+
+    def test_all_MailManager(self, secure):
+        print "Logging in as mikesligo@gmail.com"
+        password = getpass.getpass(prompt="Enter password: ")
+        mail = MailManager("mikesligo@gmail.com",password)
+        print "Getting mail..."
+        mail.send_mail("mikesligo@gmail.com",secure.encrypt_data("lol"))
+        body = mail.get_body(mail.fetch_mail())
+        print "Received: " + body
+        print "Decrypting...",
+        print secure.decrypt_data(body)
+        mail.quit()
+    
 if __name__ == '__main__':
     print
-    #print "Logging in as mikesligo@gmail.com"
-    #password = getpass.getpass(prompt="Enter password: ")
-    #mail = MailManager("mikesligo@gmail.com",password)
-    #mail.send_mail("mikesligo@gmail.com","lol")
-    #mail.fetch_mail()
-    #mail.quit()
-    secure = EncryptionManager()
-    #secure.generate_cert("key.asc")
-    secure.import_cert("cert.pem")
-    print secure.decrypt_data(secure.encrypt_data("lol"))
+    tester = TestManager()
+    tester.test_all()
