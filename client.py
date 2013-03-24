@@ -67,7 +67,7 @@ class MailManager():
             raise
         print "successful."
 
-    def send_mail(self,address,data):
+    def send_mail(self, address, data, sig=None):
         message = 'Subject: %s\n\n%s' % ("Testing code", data)
         self.serverConn.sendmail(self.username,address,message)
 
@@ -101,14 +101,16 @@ class EncryptionManager():
             self.import_cert(cert_loc)
 
     def generate_cert(self, loc):
-        self.generate_pkey(loc)
+        self.generate_pkey(None)
         self.create_x509_request()
         self.create_x509_cert()
 
     def generate_pkey(self, loc):
         if loc is None:
-            Rand.rand_seed(os.urandom(1024))
-            self.private = RSA.gen_key (1024, 65537, lambda: None)
+            Rand.rand_seed(os.urandom(4096))
+            self.private = RSA.gen_key (4096, 65537, lambda: None)
+            self.private.save_key("private.pem",None)
+            self.private.save_pub_key("public.pem")
         else:
             self.import_key(loc)
         self.pkey = EVP.PKey()  
@@ -164,18 +166,32 @@ class EncryptionManager():
     def import_key(self, loc):
         self.private = RSA.load_key(loc)
 
+    def import_pub_key(self,loc):
+        return RSA.load_pub_key(loc)
+
     def import_cert(self,loc):
         self.X509Certificate = X509.load_cert(loc)
 
-    def encrypt_data(self, data):
-        pubkey = self.X509Certificate.get_pubkey().get_rsa()
-        ciphertext = pubkey.public_encrypt(data, RSA.pkcs1_oaep_padding)
+    def encrypt_and_sign_data(self,data):
+        return self.encrypt_data(data, self.sign_data(data))
+
+    def encrypt_data(self, data, sig=None):
+        if sig is not None:
+            message = 'Subject: %s\n\n'+ \
+            '-----BEGIN PGP SIGNED MESSAGE-----\n' + \
+            'Hash: SHA1\n%s-----BEGIN PGP SIGNATURE-----\n' + \
+            'Version:Securipy 0.1\n' + \
+            '\n%s\n -----END PGP SIGNATURE-----' % ("Testing code", data, sig)
+        else:
+            message = data
+        pubkey = self.import_pub_key("public.pem")
+        ciphertext = pubkey.public_encrypt(message, RSA.pkcs1_oaep_padding)
         encoded = base64.b64encode(ciphertext)
         return encoded
 
     def decrypt_data(self, encoded):
         #privkey = self.X509Certificate.get_pubkey().as_pem(None)
-        cipher = RSA.load_key("key.asc")
+        cipher = RSA.load_key("private.pem")
         decoded = base64.b64decode(encoded)
         try:
             plaintext = cipher.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
@@ -185,26 +201,42 @@ class EncryptionManager():
         return plaintext
 
     def sign_data(self,data):
-        if self.private is None:
+        if hasattr(self,'private') is not True:
             print "Private key not found/Location not set"
             exit(1)
         sign_EVP = EVP.load_key_string(self.private.as_pem(None))
         sign_EVP.sign_init()
         sign_EVP.sign_update(data)
         sig = sign_EVP.sign_final()
-        print sig
-        print sig.encode('base64')
+        return base64.b64encode(sig)
+
+    def verify_sig(self,data,encoded,key_loc="public.pem"):
+        decoded = base64.b64decode(encoded)
+        pubkey = RSA.load_pub_key(key_loc)
+        verify_EVP = EVP.PKey()
+        verify_EVP.assign_rsa(pubkey)
+        verify_EVP.verify_init()
+        verify_EVP.verify_update(data)
+        return verify_EVP.verify_final(decoded)
 
 class TestManager():
 
     def test_all(self):
-        self.secure = EncryptionManager(key_loc="key.asc", cert_loc="cert.pem")
+        self.secure = EncryptionManager()
         self.test_certificate_handling(generate=False)
         self.test_mail_encryption()
         self.test_sign_data()
 
     def test_sign_data(self):
-        self.secure.sign_data("Test signing")
+        data = "Testing signing..."
+        signed = self.secure.sign_data(data)
+        valid = self.secure.verify_sig(data,signed)
+        if valid == 1:
+            print "Signature valid"
+        else:
+            print "Signature invalid"
+            print data
+            print signed
 
     def test_certificate_handling(self, generate=False):
         if generate is True:
