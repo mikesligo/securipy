@@ -69,7 +69,8 @@ class MailManager():
         print "successful."
 
     def send_mail(self,address,data):
-        self.serverConn.sendmail(self.username,address,data)
+        message = 'Subject: %s\n\n%s' % ("Testing code", data)
+        self.serverConn.sendmail(self.username,address,message)
 
     def fetch_mail(self):
         print "** Connecting to IMAP servers **"
