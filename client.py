@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.'''
 
+# TODO Parse signed email and verify it, s/mime
+
 from smtplib import SMTPHeloError, SMTPAuthenticationError, SMTPException, SMTP
 from M2Crypto import RSA, X509, ASN1, Rand, EVP, m2
 import imaplib
@@ -107,7 +109,7 @@ class EncryptionManager():
         self.create_x509_request()
         self.create_x509_cert()
 
-    def generate_pkey(self, loc):
+    def generate_pkey(self, loc=None):
         if loc is None:
             Rand.rand_seed(os.urandom(4096))
             self.private = RSA.gen_key(4096, 65537, lambda: None)
@@ -177,19 +179,28 @@ class EncryptionManager():
     def encrypt_and_sign_data(self, data):
         return self.encrypt_data(data, self.sign_data(data))
 
+    def sign_data(self, data):
+        subject = "Testing signing"
+        sig = self.generate_sig(data)
+        return self.sign_template(subject, data, sig)
+
     def encrypt_data(self, data, sig=None):
         if sig is not None:
-            message = 'Subject: %s\n\n' + \
-                      '-----BEGIN PGP SIGNED MESSAGE-----\n' + \
-                      'Hash: SHA1\n%s-----BEGIN PGP SIGNATURE-----\n' + \
-                      'Version:Securipy 0.1\n' + \
-                      '\n%s\n -----END PGP SIGNATURE-----' % ("Testing code", data, sig)
+            message = self.sign_template("Test code", data, sig)
         else:
             message = data
         pubkey = self.import_pub_key("public.pem")
         ciphertext = pubkey.public_encrypt(message, RSA.pkcs1_oaep_padding)
         encoded = base64.b64encode(ciphertext)
         return encoded
+
+    def sign_template(self, subject, data, sig):
+        message = "Subject: %s\n\n" % (subject) + \
+                  "-----BEGIN PGP SIGNED MESSAGE-----\n" + \
+                  "Hash: SHA1\n\n%s\n-----BEGIN PGP SIGNATURE-----\n" % (data) + \
+                  "Version:Securipy 0.1\n" + \
+                  "\n%s\n -----END PGP SIGNATURE-----" % (sig)
+        return message
 
     def decrypt_data(self, encoded):
         #privkey = self.X509Certificate.get_pubkey().as_pem(None)
@@ -202,7 +213,7 @@ class EncryptionManager():
             return ""
         return plaintext
 
-    def sign_data(self, data):
+    def generate_sig(self, data):
         if hasattr(self, 'private') is not True:
             print "Private key not found/Location not set"
             exit(1)
@@ -222,17 +233,27 @@ class EncryptionManager():
         return verify_EVP.verify_final(decoded)
 
 
-class TestManager():
+class TestManager():    # These test methods don't actually test things
 
     def test_all(self):
-        self.secure = EncryptionManager()
-        self.test_certificate_handling(generate=True)
-        self.test_mail_encryption()
-        self.test_sign_data()
+        self.secure = EncryptionManager(key_loc="private.pem")
+        self.sign_and_send()
+        #self.test_certificate_handling(generate=True)
+        #self.test_mail_encryption()
+        #self.test_sign_data()
+
+    def sign_and_send(self):
+        pub = RSA.load_pub_key("public.pem").as_pem()
+        data = "Signed message biatch, verify this shit\n\n" + pub
+        message = self.secure.sign_data(data)
+        print "Logging in as mikesligo@gmail.com"
+        password = getpass.getpass(prompt="Enter password: ")
+        mail = MailManager("mikesligo@gmail.com", password)
+        mail.send_mail("mikesligo@gmail.com", message)
 
     def test_sign_data(self):
         data = "Testing signing..."
-        signed = self.secure.sign_data(data)
+        signed = self.secure.generate_sig(data)
         valid = self.secure.verify_sig(data, signed)
         if valid == 1:
             print "Signature valid"
