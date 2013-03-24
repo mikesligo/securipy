@@ -102,8 +102,8 @@ class EncryptionManager():
         if cert_loc is not None:
             self.import_cert(cert_loc)
 
-    def generate_cert(self, loc):
-        self.generate_pkey(None)
+    def generate_cert(self, loc=None):
+        self.generate_pkey(loc)
         self.create_x509_request()
         self.create_x509_cert()
 
@@ -226,7 +226,7 @@ class TestManager():
 
     def test_all(self):
         self.secure = EncryptionManager()
-        self.test_certificate_handling(generate=False)
+        self.test_certificate_handling(generate=True)
         self.test_mail_encryption()
         self.test_sign_data()
 
@@ -244,7 +244,7 @@ class TestManager():
     def test_certificate_handling(self, generate=False):
         if generate is True:
             print "Generating certificate..."
-            self.secure.generate_cert("key.asc")
+            self.secure.generate_cert()
         print "Importing certificate..."
         self.secure.import_cert("cert.pem")
 
