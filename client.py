@@ -80,7 +80,7 @@ class MailManager():
 
     def get_latest_email(self):
         self.imap.select("inbox")
-        result, data = self.imap.uid('search', None, "ALL") # search and return uids instead
+        result, data = self.imap.uid('search', None, "ALL")
         latest_email_uid = data[0].split()[-1]
         result, data = self.imap.uid('fetch', latest_email_uid, '(RFC822)')
         raw_email = data[0][1]
@@ -185,31 +185,51 @@ class EncryptionManager():
         return plaintext
 
     def sign_data(self,data):
-        pass
+        if self.private is None:
+            print "Private key not found/Location not set"
+            exit(1)
+        sign_EVP = EVP.load_key_string(self.private.as_pem(None))
+        sign_EVP.sign_init()
+        sign_EVP.sign_update(data)
+        sig = sign_EVP.sign_final()
+        print sig
+        print sig.encode('base64')
 
 class TestManager():
 
     def test_all(self):
-        secure = EncryptionManager(key_loc="key.asc")
-        #self.test_certificate_handling(secure)
-        self.test_mail_encryption(secure)
+        self.secure = EncryptionManager(key_loc="key.asc", cert_loc="cert.pem")
+        self.test_certificate_handling(generate=False)
+        self.test_mail_encryption()
+        self.test_sign_data()
 
-    def test_certificate_handling(self, secure):
-        print "Generating certificate..."
-        secure.generate_cert("key.asc")
+    def test_sign_data(self):
+        self.secure.sign_data("Test signing")
+
+    def test_certificate_handling(self, generate=False):
+        if generate is True:
+            print "Generating certificate..."
+            self.secure.generate_cert("key.asc")
         print "Importing certificate..."
-        secure.import_cert("cert.pem")
+        self.secure.import_cert("cert.pem")
 
-    def test_mail_encryption(self,secure):
+    def test_send_mail(self, data="lololol"):
         print "Logging in as mikesligo@gmail.com"
         password = getpass.getpass(prompt="Enter password: ")
         mail = MailManager("mikesligo@gmail.com",password)
         print "Getting mail..."
-        data = "lolol"
-        mail.send_mail("mikesligo@gmail.com",secure.encrypt_data(data))
+        if self.secure.X509Certificate is not None:
+            mail.send_mail("mikesligo@gmail.com",self.secure.encrypt_data(data))
+        else:
+            mail.send_mail("mikesligo@gmail.com",data)
+        return mail
+
+    def test_mail_encryption(self):
+        data = "encrypt some shiz"
+        mail = self.test_send_mail(data)
         body = mail.get_body(mail.fetch_mail())
         print "Decrypting...",
-        decrypted = secure.decrypt_data(body)
+        decrypted = self.secure.decrypt_data(body)
         if decrypted == data:
             print "successful\nDecrypted data matches original"
         else:
