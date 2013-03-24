@@ -14,14 +14,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.'''
 
-import smtplib
-from smtplib import SMTPHeloError, SMTPAuthenticationError, SMTPException
+from smtplib import SMTPHeloError, SMTPAuthenticationError, SMTPException, SMTP
+from M2Crypto import RSA, X509, ASN1, Rand, EVP, m2
 import imaplib
 import getpass
-import sys, os
+import sys
+import os
 import email
-import M2Crypto
-from M2Crypto import RSA
 import time
 import base64
 
@@ -35,7 +34,7 @@ class MailManager():
         self.username = username
         self.password = password
         print "** Connecting to SMTP servers **"
-        self.serverConn = smtplib.SMTP("smtp.gmail.com:587")
+        self.serverConn = SMTP("smtp.gmail.com:587")
         self.serverConn.starttls()
         self.login_smtp()
 
@@ -95,6 +94,12 @@ class MailManager():
 
 class EncryptionManager():
 
+    def __init__(self, key_loc=None, cert_loc=None):
+        if key_loc is not None:
+            self.import_key(key_loc)
+        if cert_loc is not None:
+            self.import_cert(cert_loc)
+
     def generate_cert(self, loc):
         self.generate_pkey(loc)
         self.create_x509_request()
@@ -102,16 +107,16 @@ class EncryptionManager():
 
     def generate_pkey(self, loc):
         if loc is None:
-            M2Crypto.Rand.rand_seed(os.urandom(1024))
-            self.private = M2Crypto.RSA.gen_key (1024, 65537, lambda: None)
+            Rand.rand_seed(os.urandom(1024))
+            self.private = RSA.gen_key (1024, 65537, lambda: None)
         else:
             self.import_key(loc)
-        self.pkey = M2Crypto.EVP.PKey()  
+        self.pkey = EVP.PKey()  
         self.pkey.assign_rsa(self.private)
 
     def create_x509_request(self):
-        self.X509Request = M2Crypto.X509.Request()
-        X509Name = M2Crypto.X509.X509_Name()
+        self.X509Request = X509.Request()
+        X509Name = X509.X509_Name()
         X509Name.add_entry_by_txt (field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0 ) # country name
         X509Name.add_entry_by_txt (field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # state of province name
         X509Name.add_entry_by_txt (field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # locality name
@@ -125,16 +130,16 @@ class EncryptionManager():
         #print self.X509Request.as_text()
 
     def create_x509_cert(self):
-        self.X509Certificate = M2Crypto.X509.X509() 
+        self.X509Certificate = X509.X509() 
         self.X509Certificate.set_version(0)
 
         # Time settings
-        cur_time = M2Crypto.ASN1.ASN1_UTCTIME()
+        cur_time = ASN1.ASN1_UTCTIME()
         cur_time.set_time(int(time.time()))
         self.X509Certificate.set_not_before(cur_time)
 
         # Expire certs in 1 day.
-        expire_time = M2Crypto.ASN1.ASN1_UTCTIME()
+        expire_time = ASN1.ASN1_UTCTIME()
         expire_time.set_time(int(time.time()) + 60 * 60 * 24)
         self.X509Certificate.set_not_after(expire_time)
 
@@ -149,7 +154,7 @@ class EncryptionManager():
         X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
         X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Authority',len=-1, loc=-1, set=0)    # common name
         X509Name.add_entry_by_txt(field='Email',type=MBSTRING_ASC, entry='mikesligo@gmail.com',len=-1, loc=-1, set=0)    # pkcs9 email address
-        X509Name = M2Crypto.X509.X509_Name(M2Crypto.m2.x509_name_new())
+        X509Name = X509.X509_Name(m2.x509_name_new())
         self.X509Certificate.set_issuer_name(X509Name)
         
         self.X509Certificate.sign(pkey=self.pkey, md='sha1')
@@ -157,10 +162,10 @@ class EncryptionManager():
         #print self.X509Certificate.as_text ()
 
     def import_key(self, loc):
-        self.private = M2Crypto.RSA.load_key(loc)
+        self.private = RSA.load_key(loc)
 
     def import_cert(self,loc):
-        self.X509Certificate = M2Crypto.X509.load_cert(loc)
+        self.X509Certificate = X509.load_cert(loc)
 
     def encrypt_data(self, data):
         pubkey = self.X509Certificate.get_pubkey().get_rsa()
@@ -172,34 +177,46 @@ class EncryptionManager():
         #privkey = self.X509Certificate.get_pubkey().as_pem(None)
         cipher = RSA.load_key("key.asc")
         decoded = base64.b64decode(encoded)
-        plaintext = cipher.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
+        try:
+            plaintext = cipher.private_decrypt(decoded, RSA.pkcs1_oaep_padding)
+        except:
+            print "Error: Incorrect private key"
+            return ""
         return plaintext
+
+    def sign_data(self,data):
+        pass
 
 class TestManager():
 
     def test_all(self):
-        secure = EncryptionManager()
-        tester.test_all_EncryptionManager(secure)
-        tester.test_all_MailManager(secure)
+        secure = EncryptionManager(key_loc="key.asc")
+        #self.test_certificate_handling(secure)
+        self.test_mail_encryption(secure)
 
-    def test_all_EncryptionManager(self, secure):
+    def test_certificate_handling(self, secure):
         print "Generating certificate..."
         secure.generate_cert("key.asc")
         print "Importing certificate..."
         secure.import_cert("cert.pem")
 
-    def test_all_MailManager(self, secure):
+    def test_mail_encryption(self,secure):
         print "Logging in as mikesligo@gmail.com"
         password = getpass.getpass(prompt="Enter password: ")
         mail = MailManager("mikesligo@gmail.com",password)
         print "Getting mail..."
-        mail.send_mail("mikesligo@gmail.com",secure.encrypt_data("lol"))
+        data = "lolol"
+        mail.send_mail("mikesligo@gmail.com",secure.encrypt_data(data))
         body = mail.get_body(mail.fetch_mail())
-        print "Received: " + body
         print "Decrypting...",
-        print secure.decrypt_data(body)
+        decrypted = secure.decrypt_data(body)
+        if decrypted == data:
+            print "successful\nDecrypted data matches original"
+        else:
+            print "failed\nEncrypted data does not match original"
+        print "Received: " + decrypted
         mail.quit()
-    
+
 if __name__ == '__main__':
     print
     tester = TestManager()
