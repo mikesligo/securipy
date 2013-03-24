@@ -1,6 +1,6 @@
 ''' Copyright 2013 Michael Gallagher
     mikesligo (at) gmail (dot) com
-    
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -25,8 +25,9 @@ import time
 import base64
 
 MBSTRING_FLAG = 0x1000
-MBSTRING_ASC  = MBSTRING_FLAG | 1
-MBSTRING_BMP  = MBSTRING_FLAG | 2
+MBSTRING_ASC = MBSTRING_FLAG | 1
+MBSTRING_BMP = MBSTRING_FLAG | 2
+
 
 class MailManager():
 
@@ -51,9 +52,9 @@ class MailManager():
         try:
             print "Logging in... ",
             if protocol == "smtp":
-                self.serverConn.login(self.username,self.password)
+                self.serverConn.login(self.username, self.password)
             elif protocol == "imap":
-                self.imap.login(self.username,self.password)
+                self.imap.login(self.username, self.password)
         except SMTPHeloError:
             print "SMTPHeloError:"
             raise
@@ -69,7 +70,7 @@ class MailManager():
 
     def send_mail(self, address, data, sig=None):
         message = 'Subject: %s\n\n%s' % ("Testing code", data)
-        self.serverConn.sendmail(self.username,address,message)
+        self.serverConn.sendmail(self.username, address, message)
 
     def fetch_mail(self):
         print "** Connecting to IMAP servers **"
@@ -86,11 +87,12 @@ class MailManager():
         raw_email = data[0][1]
         return raw_email
 
-    def get_body(self,raw_email):
+    def get_body(self, raw_email):
         return email.message_from_string(raw_email).get_payload()
 
     def quit(self):
         self.serverConn.quit()
+
 
 class EncryptionManager():
 
@@ -108,31 +110,31 @@ class EncryptionManager():
     def generate_pkey(self, loc):
         if loc is None:
             Rand.rand_seed(os.urandom(4096))
-            self.private = RSA.gen_key (4096, 65537, lambda: None)
-            self.private.save_key("private.pem",None)
+            self.private = RSA.gen_key(4096, 65537, lambda: None)
+            self.private.save_key("private.pem", None)
             self.private.save_pub_key("public.pem")
         else:
             self.import_key(loc)
-        self.pkey = EVP.PKey()  
+        self.pkey = EVP.PKey()
         self.pkey.assign_rsa(self.private)
 
     def create_x509_request(self):
         self.X509Request = X509.Request()
         X509Name = X509.X509_Name()
-        X509Name.add_entry_by_txt (field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0 ) # country name
-        X509Name.add_entry_by_txt (field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # state of province name
-        X509Name.add_entry_by_txt (field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # locality name
-        X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
-        X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
-        X509Name.add_entry_by_txt (field='CN', type=MBSTRING_ASC, entry='Certificate client',len=-1, loc=-1, set=0)    # common name
-        X509Name.add_entry_by_txt (field='Email',type=MBSTRING_ASC, entry='mikesligo@gmail.com',len=-1, loc=-1, set=0)    # pkcs9 email address
+        X509Name.add_entry_by_txt(field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0)  # country
+        X509Name.add_entry_by_txt(field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0)  # state
+        X509Name.add_entry_by_txt(field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0)  # locality
+        X509Name.add_entry_by_txt(field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0)  # organization
+        X509Name.add_entry_by_txt(field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0)  # org
+        X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate client', len=-1, loc=-1, set=0)
+        X509Name.add_entry_by_txt(field='Email', type=MBSTRING_ASC, entry='mikesligo@gmail.com', len=-1, loc=-1, set=0)
         self.X509Request.set_subject_name(X509Name)
-        self.X509Request.set_pubkey( pkey=self.pkey )
+        self.X509Request.set_pubkey(pkey=self.pkey)
         self.X509Request.sign(pkey=self.pkey, md='sha1')
         #print self.X509Request.as_text()
 
     def create_x509_cert(self):
-        self.X509Certificate = X509.X509() 
+        self.X509Certificate = X509.X509()
         self.X509Certificate.set_version(0)
 
         # Time settings
@@ -149,16 +151,16 @@ class EncryptionManager():
         X509Name = self.X509Request.get_subject()
 
         self.X509Certificate.set_subject_name(X509Name)
-        X509Name.add_entry_by_txt (field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0 ) # country name
-        X509Name.add_entry_by_txt (field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # state of province name
-        X509Name.add_entry_by_txt (field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0 ) # locality name
-        X509Name.add_entry_by_txt (field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0 ) # organization name
-        X509Name.add_entry_by_txt (field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0 ) # organizational unit name
-        X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Authority',len=-1, loc=-1, set=0)    # common name
-        X509Name.add_entry_by_txt(field='Email',type=MBSTRING_ASC, entry='mikesligo@gmail.com',len=-1, loc=-1, set=0)    # pkcs9 email address
+        X509Name.add_entry_by_txt(field='C', type=MBSTRING_ASC, entry='Ireland', len=-1, loc=-1, set=0)  # country
+        X509Name.add_entry_by_txt(field='SP', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0)  # state
+        X509Name.add_entry_by_txt(field='L', type=MBSTRING_ASC, entry='Dublin', len=-1, loc=-1, set=0)  # locality
+        X509Name.add_entry_by_txt(field='O', type=MBSTRING_ASC, entry='TFA', len=-1, loc=-1, set=0)  # org
+        X509Name.add_entry_by_txt(field='OU', type=MBSTRING_ASC, entry='DevOps', len=-1, loc=-1, set=0)  # org
+        X509Name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Authority', len=-1, loc=-1, set=0)
+        X509Name.add_entry_by_txt(field='Email', type=MBSTRING_ASC, entry='mikesligo@gmail.com', len=-1, loc=-1, set=0)
         X509Name = X509.X509_Name(m2.x509_name_new())
         self.X509Certificate.set_issuer_name(X509Name)
-        
+
         self.X509Certificate.sign(pkey=self.pkey, md='sha1')
         self.X509Certificate.save_pem("cert.pem")
         #print self.X509Certificate.as_text ()
@@ -166,22 +168,22 @@ class EncryptionManager():
     def import_key(self, loc):
         self.private = RSA.load_key(loc)
 
-    def import_pub_key(self,loc):
+    def import_pub_key(self, loc):
         return RSA.load_pub_key(loc)
 
-    def import_cert(self,loc):
+    def import_cert(self, loc):
         self.X509Certificate = X509.load_cert(loc)
 
-    def encrypt_and_sign_data(self,data):
+    def encrypt_and_sign_data(self, data):
         return self.encrypt_data(data, self.sign_data(data))
 
     def encrypt_data(self, data, sig=None):
         if sig is not None:
-            message = 'Subject: %s\n\n'+ \
-            '-----BEGIN PGP SIGNED MESSAGE-----\n' + \
-            'Hash: SHA1\n%s-----BEGIN PGP SIGNATURE-----\n' + \
-            'Version:Securipy 0.1\n' + \
-            '\n%s\n -----END PGP SIGNATURE-----' % ("Testing code", data, sig)
+            message = 'Subject: %s\n\n' + \
+                      '-----BEGIN PGP SIGNED MESSAGE-----\n' + \
+                      'Hash: SHA1\n%s-----BEGIN PGP SIGNATURE-----\n' + \
+                      'Version:Securipy 0.1\n' + \
+                      '\n%s\n -----END PGP SIGNATURE-----' % ("Testing code", data, sig)
         else:
             message = data
         pubkey = self.import_pub_key("public.pem")
@@ -200,8 +202,8 @@ class EncryptionManager():
             return ""
         return plaintext
 
-    def sign_data(self,data):
-        if hasattr(self,'private') is not True:
+    def sign_data(self, data):
+        if hasattr(self, 'private') is not True:
             print "Private key not found/Location not set"
             exit(1)
         sign_EVP = EVP.load_key_string(self.private.as_pem(None))
@@ -210,7 +212,7 @@ class EncryptionManager():
         sig = sign_EVP.sign_final()
         return base64.b64encode(sig)
 
-    def verify_sig(self,data,encoded,key_loc="public.pem"):
+    def verify_sig(self, data, encoded, key_loc="public.pem"):
         decoded = base64.b64decode(encoded)
         pubkey = RSA.load_pub_key(key_loc)
         verify_EVP = EVP.PKey()
@@ -218,6 +220,7 @@ class EncryptionManager():
         verify_EVP.verify_init()
         verify_EVP.verify_update(data)
         return verify_EVP.verify_final(decoded)
+
 
 class TestManager():
 
@@ -230,7 +233,7 @@ class TestManager():
     def test_sign_data(self):
         data = "Testing signing..."
         signed = self.secure.sign_data(data)
-        valid = self.secure.verify_sig(data,signed)
+        valid = self.secure.verify_sig(data, signed)
         if valid == 1:
             print "Signature valid"
         else:
@@ -248,12 +251,12 @@ class TestManager():
     def test_send_mail(self, data="lololol"):
         print "Logging in as mikesligo@gmail.com"
         password = getpass.getpass(prompt="Enter password: ")
-        mail = MailManager("mikesligo@gmail.com",password)
+        mail = MailManager("mikesligo@gmail.com", password)
         print "Getting mail..."
         if self.secure.X509Certificate is not None:
-            mail.send_mail("mikesligo@gmail.com",self.secure.encrypt_data(data))
+            mail.send_mail("mikesligo@gmail.com", self.secure.encrypt_data(data))
         else:
-            mail.send_mail("mikesligo@gmail.com",data)
+            mail.send_mail("mikesligo@gmail.com", data)
         return mail
 
     def test_mail_encryption(self):
